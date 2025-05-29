@@ -207,6 +207,7 @@ function(input, output, session) {
     }
     return(data)
   })
+  
   output$priceChart <- renderPlotly({
     data <- tab2_filtered_data()
     
@@ -224,15 +225,14 @@ function(input, output, session) {
     
     p <- ggplot(price_summary, aes(x = reorder(primary_genre, `Median Price ($)`), 
                                    y = `Median Price ($)`)) +
-      geom_col(show.legend = FALSE) +
-      geom_text(aes(label = `Median Price ($)`), vjust = -0.5, size = 3.5) +
-      labs(x = "Genre", y = "Price ($)", title = "Median prices of chosen genres") +
+      geom_col(show.legend = FALSE, fill = "#FAD74A") +
+      geom_text(aes(label = `Median Price ($)`), position = position_nudge(y = 0.5), size = 3.5) +
+      labs(x = "Genre", y = "Price ($)") +
       theme_minimal() +
       theme(
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        plot.title = element_text(hjust = 0.5)
+        axis.text.x = element_text(angle = 45, hjust = 1)
       )
-    ggplotly(p, tooltip = c("x", "y"))
+    ggplotly(p, tooltip = "none")
       
     
   })
@@ -251,15 +251,17 @@ function(input, output, session) {
       geom_density(alpha = 0.3) +
       labs(
         x = "Median Playtime (minutes)",
-        y = "Density",
-        title = "Distribution of Median Playtime by Primary Genre"
-      ) +
+        y = "Relative probability of playtime",
+        title = "Distribution of Median Playtime by Primary Genre",
+        color = "Genre",
+        fill = "Genre") +
       theme_minimal() +
       theme(
         plot.title = element_text(hjust = 0.5)
       )
+      theme_minimal()
     
-    ggplotly(p, tooltip = c("x", "y"))
+    ggplotly(p, tooltip = "none")
   })
   
   output$ratingsChart <- renderPlotly({
@@ -305,7 +307,6 @@ function(input, output, session) {
       theme_minimal() +
       scale_fill_manual(values = c("Positive" = "#3CBB75FF", "Negative" = "#FF3B30")) +
       labs(
-        title = "Normalized Positive vs Negative Ratings per Genre",
         x = NULL,
         y = "Share of Ratings (Normalized)",
         fill = "Sentiment"
@@ -313,7 +314,7 @@ function(input, output, session) {
       scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
       theme(axis.text.y = element_text(size = 12))
     
-    ggplotly(p, tooltip = c("x", "y", "fill"))
+    ggplotly(p, tooltip = "none")
   })
   
   table_filtered_data <- reactive({
@@ -467,7 +468,7 @@ function(input, output, session) {
         lengthMenu = c(10, 15, 25, 50, 100),
         autoWidth = TRUE,
         scrollX = TRUE,
-        dom = 'lfrtip',
+        dom = 'lrtip',
         columnDefs = list(
           list(className = 'dt-center', targets = 3:6),
           list(width = '200px', targets = 0),

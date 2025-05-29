@@ -6,11 +6,7 @@ library(plotly)
 dashboardPage(
   skin = "blue",
   
-  dashboardHeader(
-    title = tags$div(
-      tags$img(src = "./PP_znak_konturowy_WHITE.png", height = "30px", style = "margin-right: 10px;"),
-      "Steam Analytics"
-    )
+  dashboardHeader( title = "Steam Analytics"
   ),
   
   dashboardSidebar(
@@ -21,6 +17,10 @@ dashboardPage(
       menuItem("Genre Analytics", tabName = "genres", icon = icon("gamepad")),
       menuItem("Games Explorer", tabName = "games", icon = icon("search")),
       menuItem("About", tabName = "about", icon = icon("info-circle"))
+    ),
+    tags$div(
+      style = "position: absolute; bottom: 10px; width: 100%; text-align: center;",
+      tags$img(src = "./PP_znak_konturowy_WHITE.png", height = "150px", style = "margin-bottom: 10px;")
     )
   ),
   
