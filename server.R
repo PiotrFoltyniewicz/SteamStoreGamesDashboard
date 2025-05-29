@@ -1,170 +1,489 @@
 library(shiny)
 library(shinydashboard)
-library(plotly)
 library(DT)
+library(plotly)
 library(ggplot2)
 library(dplyr)
+library(readr)
+library(stringr)
+library(lubridate)
+library(tidyr)
 
-# Define server logic
 function(input, output, session) {
   
-  # Sample data creation (replace with your actual data)
   games_data <- reactive({
-    set.seed(42)
-    data.frame(
-      game_name = paste("Game", 1:1000),
-      year = sample(2007:2023, 1000, replace = TRUE),
-      genre = sample(c("Action", "Adventure", "Strategy", "RPG", "Simulation", "Sports"), 1000, replace = TRUE),
-      platform = sample(c("Windows", "Mac", "Linux"), 1000, replace = TRUE, prob = c(0.7, 0.2, 0.1)),
-      developer = sample(paste("Developer", LETTERS[1:50]), 1000, replace = TRUE),
-      publisher = sample(paste("Publisher", 1:30), 1000, replace = TRUE),
-      age_rating = sample(c("Everyone", "Teen", "Mature"), 1000, replace = TRUE, prob = c(0.4, 0.4, 0.2)),
-      rating = round(runif(1000, 1, 10), 1),
-      price = round(runif(1000, 5, 70), 2)
+    tryCatch({
+      steam_data <- read_csv("./steam.csv", 
+                             col_types = cols(
+                               appid = col_double(),
+                               name = col_character(),
+                               release_date = col_character(),
+                               english = col_double(),
+                               developer = col_character(),
+                               publisher = col_character(),
+                               platforms = col_character(),
+                               required_age = col_double(),
+                               categories = col_character(),
+                               genres = col_character(),
+                               steamspy_tags = col_character(),
+                               achievements = col_double(),
+                               positive_ratings = col_double(),
+                               negative_ratings = col_double(),
+                               average_playtime = col_double(),
+                               median_playtime = col_double(),
+                               owners = col_character(),
+                               price = col_double()
+                             ))
+      
+      steam_data <- steam_data %>%
+        filter(!is.na(name), !is.na(release_date)) %>%
+        mutate(
+          release_date = as.Date(release_date, format = "%Y-%m-%d"),
+          year = year(release_date),
+          
+          developer = ifelse(is.na(developer) | developer == "", "Unknown", developer),
+          publisher = ifelse(is.na(publisher) | publisher == "", "Unknown", publisher),
+          
+          has_windows = str_detect(tolower(platforms), "windows"),
+          has_mac = str_detect(tolower(platforms), "mac"),
+          has_linux = str_detect(tolower(platforms), "linux"),
+          
+          platform = case_when(
+            has_windows & (has_mac | has_linux) ~ "Multi-platform",
+            has_windows ~ "Windows",
+            has_mac & !has_windows ~ "Mac",
+            has_linux & !has_windows ~ "Linux",
+            TRUE ~ "Other"
+          ),
+          
+          genres_clean = ifelse(is.na(genres) | genres == "", "Unknown", genres),
+          primary_genre = ifelse(
+            genres_clean == "Unknown",
+            "Unknown", 
+            str_extract(genres_clean, "^[^;]+")
+          ),
+          price = ifelse(is.na(price), 0, price),
+        )
+      return(steam_data)
+      
+    })
+  })
+  
+  filtered_data <- reactive({
+    data <- games_data()
+    
+    if (!is.null(input$yearRange)) {
+      data <- data %>% filter(year >= input$yearRange[1], year <= input$yearRange[2])
+    }
+    
+    if (!is.null(input$platform) && input$platform != "all") {
+      platform_map <- list(
+        "windows" = "Windows", 
+        "linux" = "Linux",
+        "mac" = "Mac"
+      )
+      if (input$platform %in% names(platform_map)) {
+        data <- data %>% filter(platform == platform_map[[input$platform]])
+      }
+    }
+    return(data)
+  })
+  
+  output$totalGames <- renderValueBox({
+    total_games <- nrow(filtered_data())
+    valueBox(
+      value = format(total_games, big.mark = ","),
+      subtitle = "Total Games",
+      icon = icon("gamepad"),
+      color = "blue"
     )
   })
   
-  # TAB 1 Outputs
-  output$gameReleaseChart <- renderPlot({
-    data <- games_data()
+  output$peakYear <- renderValueBox({
+    data <- filtered_data()
+    peak_year <- data %>%
+      count(year) %>%
+      arrange(desc(n)) %>%
+      slice(1) %>%
+      pull(year)
     
-    # Filter by platform if not "All"
-    if(input$platform != "All") {
-      data <- data[data$platform == input$platform, ]
-    }
+    if (length(peak_year) == 0) peak_year <- "N/A"
     
-    # Filter by year range
-    data <- data[data$year >= input$yearRange[1] & data$year <= input$yearRange[2], ]
+    valueBox(
+      value = peak_year,
+      subtitle = "Peak Release Year", 
+      icon = icon("calendar"),
+      color = "green"
+    )
+  })
+  
+  output$uniqueDevs <- renderValueBox({
+    unique_devs <- filtered_data() %>%
+      distinct(developer) %>%
+      nrow()
     
-    # Aggregate by year
+    valueBox(
+      value = format(unique_devs, big.mark = ","),
+      subtitle = "Unique Developers",
+      icon = icon("users"),
+      color = "yellow"
+    )
+  })
+  
+  output$publishers <- renderValueBox({
+    unique_pubs <- filtered_data() %>%
+      distinct(publisher) %>%
+      nrow()
+    
+    valueBox(
+      value = format(unique_pubs, big.mark = ","), 
+      subtitle = "Publishers",
+      icon = icon("building"),
+      color = "red"
+    )
+  })
+  
+  output$timelineChart <- renderPlotly({
+    data <- filtered_data()
+    
     yearly_counts <- data %>%
       group_by(year) %>%
-      summarise(count = n(), .groups = 'drop')
+      summarise(count = n(), .groups = 'drop') %>%
+      arrange(year)
     
-    ggplot(yearly_counts, aes(x = year, y = count)) +
-      geom_line(color = "steelblue", size = 1.2) +
-      geom_point(color = "darkblue", size = 2) +
+    p <- ggplot(yearly_counts, aes(x = year, y = count)) +
+      geom_line(color = "#3498db", size = 1.2) +
+      geom_point(color = "#2980b9", size = 2) +
       theme_minimal() +
-      labs(title = "Game Releases Over Time",
-           x = "Year", 
-           y = "Number of Games Released") +
-      theme(plot.title = element_text(hjust = 0.5))
+      labs(x = "Year", y = "Games Released") +
+      theme(
+        plot.title = element_text(hjust = 0.5),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 12)
+      )
+    
+    ggplotly(p, tooltip = c("x", "y")) %>%
+      layout(
+        title = list(text = "", font = list(size = 14)),
+        hovermode = "x unified"
+      )
   })
   
-  output$genreDistribution <- renderPlot({
-    data <- games_data()
+  output$genreChart <- renderPlotly({
+    data <- filtered_data()
     
     genre_counts <- data %>%
-      group_by(genre) %>%
-      summarise(count = n(), .groups = 'drop') %>%
-      arrange(desc(count))
+      count(primary_genre, sort = TRUE) %>%
+      filter(primary_genre != "Unknown") %>%
+      head(8) %>%
+      mutate(percentage = round(n/sum(n)*100, 1))
     
-    ggplot(genre_counts, aes(x = "", y = count, fill = genre)) +
-      geom_bar(stat = "identity", width = 1) +
-      coord_polar("y", start = 0) +
-      theme_void() +
-      labs(title = "Genre Distribution") +
-      theme(plot.title = element_text(hjust = 0.5)) +
-      scale_fill_brewer(palette = "Set3")
+    colors <- c("#3498db", "#e74c3c", "#f39c12", "#2ecc71", "#9b59b6", "#1abc9c", "#e67e22", "#34495e")
+    
+    plot_ly(genre_counts, 
+            labels = ~primary_genre, 
+            values = ~n, 
+            type = 'pie',
+            textposition = 'inside',
+            textinfo = 'label+percent',
+            insidetextfont = list(color = '#FFFFFF'),
+            marker = list(colors = colors[1:nrow(genre_counts)], 
+                          line = list(color = '#FFFFFF', width = 2))) %>%
+      layout(
+        title = list(text = "", font = list(size = 14)),
+        showlegend = TRUE,
+        legend = list(orientation = "v", x = 1, y = 0.5)
+      )
   })
   
-  output$gamesTable <- DT::renderDataTable({
+  tab2_filtered_data <- reactive({
+    data <- games_data()
+    genres = c("indie", "action", "casual", "adventure", "strategy", "simulation", 
+               "rpg", "sports", "racing", "violent", "gore","nudity")
+    
+    data <- data[tolower(data$primary_genre) %in% genres, ]
+    if (!is.null(input$genreFilter) && length(input$genreFilter) > 0) {
+      data <- data[tolower(data$primary_genre) %in% input$genreFilter, ]
+    }
+    return(data)
+  })
+  output$priceChart <- renderPlotly({
+    data <- tab2_filtered_data()
+    
+    price_summary <- data %>%
+      filter(!is.na(price), primary_genre != "Unknown") %>%
+      group_by(primary_genre) %>%
+      summarise(
+        `Avg Price ($)` = round(mean(price, na.rm = TRUE), 2),
+        `Median Price ($)` = round(median(price, na.rm = TRUE), 2),
+        `Max Price ($)` = max(price, na.rm = TRUE),
+        .groups = 'drop'
+      ) %>%
+      arrange(desc(`Median Price ($)`)) %>%
+      head(14)
+    
+    p <- ggplot(price_summary, aes(x = reorder(primary_genre, `Median Price ($)`), 
+                                   y = `Median Price ($)`)) +
+      geom_col(show.legend = FALSE) +
+      geom_text(aes(label = `Median Price ($)`), vjust = -0.5, size = 3.5) +
+      labs(x = "Genre", y = "Price ($)", title = "Median prices of chosen genres") +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust = 0.5)
+      )
+    ggplotly(p, tooltip = c("x", "y"))
+      
+    
+  })
+  
+  output$playtimeChart <- renderPlotly({
+    data <- tab2_filtered_data()
+    
+    if (nrow(data) == 0) {
+      return(data.frame(Message = "No data available"))
+    }
+    
+    density_data <- data %>%
+      filter(!is.na(median_playtime), median_playtime >= 1, median_playtime < 1500, primary_genre != "Unknown")
+    
+    p <- ggplot(density_data, aes(x = median_playtime, color = primary_genre, fill = primary_genre)) +
+      geom_density(alpha = 0.3) +
+      labs(
+        x = "Median Playtime (minutes)",
+        y = "Density",
+        title = "Distribution of Median Playtime by Primary Genre"
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(hjust = 0.5)
+      )
+    
+    ggplotly(p, tooltip = c("x", "y"))
+  })
+  
+  output$ratingsChart <- renderPlotly({
+    data <- tab2_filtered_data()
+    
+    if (nrow(data) == 0) {
+      return(data.frame(Message = "No data available"))
+    }
+    
+    ratings_summary <- data %>%
+      filter(
+        !is.na(positive_ratings), 
+        !is.na(negative_ratings), 
+        positive_ratings + negative_ratings >= 10, 
+        primary_genre != "Unknown"
+      ) %>%
+      group_by(primary_genre) %>%
+      summarise(
+        total_positive = sum(positive_ratings, na.rm = TRUE),
+        total_negative = sum(negative_ratings, na.rm = TRUE),
+        .groups = 'drop'
+      ) %>%
+      mutate(
+        total = total_positive + total_negative,
+        pos_share = total_positive / total,
+        neg_share = total_negative / total,
+        primary_genre = factor(primary_genre, levels = rev(unique(primary_genre)))
+      )
+    
+    plot_data <- ratings_summary %>%
+      select(primary_genre, pos_share, neg_share) %>%
+      pivot_longer(cols = c(pos_share, neg_share),
+                   names_to = "Sentiment", values_to = "Percent") %>%
+      mutate(
+        Percent = ifelse(Sentiment == "neg_share", -Percent, Percent),
+        Sentiment = ifelse(Sentiment == "pos_share", "Positive", "Negative")
+      )
+    
+    p <- ggplot(plot_data, aes(x = primary_genre, y = Percent, fill = Sentiment)) +
+      geom_col(width = 0.6) +
+      geom_vline(xintercept = 0, color = "black") +
+      coord_flip() +
+      theme_minimal() +
+      scale_fill_manual(values = c("Positive" = "#3CBB75FF", "Negative" = "#FF3B30")) +
+      labs(
+        title = "Normalized Positive vs Negative Ratings per Genre",
+        x = NULL,
+        y = "Share of Ratings (Normalized)",
+        fill = "Sentiment"
+      ) +
+      scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+      theme(axis.text.y = element_text(size = 12))
+    
+    ggplotly(p, tooltip = c("x", "y", "fill"))
+  })
+  
+  table_filtered_data <- reactive({
     data <- games_data()
     
-    # Select relevant columns for display
+    if (!is.null(input$explorerGenreFilter) && length(input$explorerGenreFilter) > 0) {
+      genre_mapping <- list(
+        "indie" = "Indie",
+        "action" = "Action", 
+        "casual" = "Casual",
+        "adventure" = "Adventure",
+        "strategy" = "Strategy",
+        "simulation" = "Simulation",
+        "rpg" = "RPG",
+        "early_access" = "Early Access",
+        "free_to_play" = "Free to Play",
+        "sports" = "Sports",
+        "racing" = "Racing",
+        "violent" = "Violent",
+        "massively_multiplayer" = "Massively Multiplayer",
+        "gore" = "Gore",
+        "nudity" = "Nudity",
+        "sexual_content" = "Sexual Content"
+      )
+      
+      selected_genres <- unlist(genre_mapping[input$explorerGenreFilter])
+      
+      data <- data %>%
+        filter(tolower(primary_genre) %in% tolower(selected_genres))
+    }
+    
+    if (!is.null(input$minPrice)) {
+      data <- data %>% filter(price >= input$minPrice)
+    }
+    
+    if (!is.null(input$maxPrice)) {
+      data <- data %>% filter(price <= input$maxPrice)
+    }
+    
+    return(data)
+  })
+  
+  selected_game_data <- reactive({
+    selected_row <- input$gamesDT_rows_selected
+    data <- table_filtered_data()
+    
+    if (length(selected_row) > 0) {
+      selected_game <- data[selected_row, ]
+      return(selected_game)
+    } else {
+      return(data.frame(
+        name = "No game selected",
+        release_date = as.Date(NA),
+        positive_ratings = 0,
+        negative_ratings = 0,
+        median_playtime = 0
+      ))
+    }
+  })
+  
+  output$selectedGameTitle <- renderText({
+    game_data <- selected_game_data()
+    if (is.na(game_data$name) || game_data$name == "No game selected") {
+      "Select a game from the table below to view details"
+    } else {
+      paste("Game Details:", game_data$name)
+    }
+  })
+  
+  output$gameReleaseDate <- renderValueBox({
+    game_data <- selected_game_data()
+    
+    release_date <- if (is.na(game_data$release_date)) {
+      "N/A"
+    } else {
+      format(game_data$release_date, "%B %d, %Y")
+    }
+    
+    valueBox(
+      value = release_date,
+      subtitle = "Release Date",
+      icon = icon("calendar-alt"),
+      color = "blue"
+    )
+  })
+  
+  output$gamePositiveRating <- renderValueBox({
+    game_data <- selected_game_data()
+    
+    positive <- ifelse(is.na(game_data$positive_ratings), 0, game_data$positive_ratings)
+    negative <- ifelse(is.na(game_data$negative_ratings), 0, game_data$negative_ratings)
+    total <- positive + negative
+    
+    percentage <- if (total > 0) {
+      round((positive / total) * 100, 1)
+    } else {
+      0
+    }
+    
+    valueBox(
+      value = paste0(percentage, "%"),
+      subtitle = "Positive Ratings",
+      icon = icon("thumbs-up"),
+      color = if (percentage >= 80) "green" else if (percentage >= 60) "yellow" else "red"
+    )
+  })
+  
+  output$gameMedianPlaytime <- renderValueBox({
+    game_data <- selected_game_data()
+    
+    playtime <- ifelse(is.na(game_data$median_playtime), 0, game_data$median_playtime)
+    
+    if (playtime >= 60) {
+      hours <- round(playtime / 60, 1)
+      display_value <- paste0(hours, " hrs")
+    } else {
+      display_value <- paste0(playtime, " min")
+    }
+    
+    valueBox(
+      value = display_value,
+      subtitle = "Median Playtime",
+      icon = icon("clock"),
+      color = "purple"
+    )
+  })
+  
+  output$gamesDT <- DT::renderDataTable({
+    data <- table_filtered_data()
+    
     display_data <- data %>%
-      select(game_name, year, genre, developer, publisher, age_rating, rating) %>%
-      arrange(desc(year))
+      select(
+        Name = name,
+        Developer = developer,
+        Publisher = publisher,
+        Genre = primary_genre,
+        Platform = platform,
+        `Price ($)` = price,
+        Achievements = achievements
+      ) %>%
+      mutate(
+        `Price ($)` = round(`Price ($)`, 2),
+        Achievements = ifelse(is.na(Achievements), 0, Achievements)
+      )
     
-    DT::datatable(display_data, 
-                  options = list(pageLength = 10, scrollX = TRUE),
-                  colnames = c("Game", "Year", "Genre", "Developer", "Publisher", "Age", "Rating"))
+    DT::datatable(
+      display_data,
+      selection = "single",
+      options = list(
+        pageLength = 15,
+        lengthMenu = c(10, 15, 25, 50, 100),
+        autoWidth = TRUE,
+        scrollX = TRUE,
+        dom = 'lfrtip',
+        columnDefs = list(
+          list(className = 'dt-center', targets = 3:6),
+          list(width = '200px', targets = 0),
+          list(width = '150px', targets = c(1, 2)),
+          list(width = '100px', targets = c(3, 4, 5, 6))
+        )
+      ),
+      rownames = FALSE,
+      filter = "top",
+      escape = FALSE,
+      caption = htmltools::tags$caption(
+        style = 'caption-side: top; text-align: center; color: #333; font-size: 16px; font-weight: bold;',
+        'Steam Games Database - Click a row to view details'
+      )
+    ) %>%
+      DT::formatCurrency(c("Price ($)"), currency = "$", digits = 2)
   })
   
-  # TAB 2 Outputs
-  output$developerChart <- renderPlot({
-    data <- games_data()
-    
-    # Apply filters
-    if(input$genreFilter != "All") {
-      data <- data[data$genre == input$genreFilter, ]
-    }
-    if(input$ageFilter != "All") {
-      data <- data[data$age_rating == input$ageFilter, ]
-    }
-    
-    # Get top developers
-    dev_counts <- data %>%
-      group_by(developer) %>%
-      summarise(count = n(), .groups = 'drop') %>%
-      arrange(desc(count)) %>%
-      head(15)
-    
-    ggplot(dev_counts, aes(x = reorder(developer, count), y = count)) +
-      geom_col(fill = "lightblue", color = "navy") +
-      coord_flip() +
-      theme_minimal() +
-      labs(title = "Top Developers by Game Count",
-           x = "Developer", 
-           y = "Number of Games") +
-      theme(plot.title = element_text(hjust = 0.5))
-  })
-  
-  output$publisherChart <- renderPlot({
-    data <- games_data()
-    
-    pub_counts <- data %>%
-      group_by(publisher) %>%
-      summarise(count = n(), .groups = 'drop') %>%
-      arrange(desc(count)) %>%
-      head(10)
-    
-    ggplot(pub_counts, aes(x = reorder(publisher, count), y = count)) +
-      geom_col(fill = "lightcoral", color = "darkred") +
-      coord_flip() +
-      theme_minimal() +
-      labs(title = "Top Publishers",
-           x = "Publisher", 
-           y = "Games Published") +
-      theme(plot.title = element_text(hjust = 0.5))
-  })
-  
-  output$categoryPieChart <- renderPlot({
-    data <- games_data()
-    
-    # Create categories based on age rating
-    category_counts <- data %>%
-      group_by(age_rating) %>%
-      summarise(count = n(), .groups = 'drop')
-    
-    ggplot(category_counts, aes(x = "", y = count, fill = age_rating)) +
-      geom_bar(stat = "identity", width = 1) +
-      coord_polar("y", start = 0) +
-      theme_void() +
-      labs(title = "Game Category Distribution by Age Rating") +
-      theme(plot.title = element_text(hjust = 0.5)) +
-      scale_fill_manual(values = c("Everyone" = "lightgreen", 
-                                   "Teen" = "orange", 
-                                   "Mature" = "red"))
-  })
-  
-  # TAB 3 Outputs
-  output$categoryAnalysis <- renderPlot({
-    data <- games_data()
-    
-    # Multi-panel analysis
-    year_genre <- data %>%
-      group_by(year, genre) %>%
-      summarise(count = n(), .groups = 'drop')
-    
-    ggplot(year_genre, aes(x = year, y = count, fill = genre)) +
-      geom_area(position = "stack", alpha = 0.7) +
-      theme_minimal() +
-      labs(title = "Category Analysis Over Time",
-           x = "Year", 
-           y = "Number of Games",
-           fill = "Genre") +
-      theme(plot.title = element_text(hjust = 0.5)) +
-      scale_fill_brewer(palette = "Set2")
-  })
 }
