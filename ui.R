@@ -9,7 +9,7 @@ dashboardPage(
   dashboardHeader(
     title = tags$div(
       tags$img(src = "./PP_znak_konturowy_WHITE.png", height = "30px", style = "margin-right: 10px;"),
-      "Steam Games Database Analytics"
+      "Steam Analytics"
     )
   ),
   
@@ -17,10 +17,10 @@ dashboardPage(
     width = 280,
     sidebarMenu(
       id = "sidebar",
-      menuItem("📊 Overview & Trends", tabName = "overview", icon = icon("chart-line")),
-      menuItem("🎮 Genre Analytics", tabName = "genres", icon = icon("gamepad")),
-      menuItem("🎯 Games Explorer", tabName = "games", icon = icon("search")),
-      menuItem("ℹ️ About", tabName = "about", icon = icon("info-circle"))
+      menuItem("Overview & Trends", tabName = "overview", icon = icon("chart-line")),
+      menuItem("Genre Analytics", tabName = "genres", icon = icon("gamepad")),
+      menuItem("Games Explorer", tabName = "games", icon = icon("search")),
+      menuItem("About", tabName = "about", icon = icon("info-circle"))
     )
   ),
   
