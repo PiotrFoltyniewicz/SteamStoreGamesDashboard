@@ -66,9 +66,28 @@ dashboardPage(
           color: #ecf0f1 !important;
         }
         
-        /* Hide hamburger menu icon */
+        /* Show hamburger menu icon and position it properly */
         .navbar-toggle {
-          display: none !important;
+          display: block !important;
+          float: left !important;
+          margin-left: 15px !important;
+          margin-right: 15px !important;
+          background-color: transparent !important;
+          border: 1px solid rgba(255,255,255,0.3) !important;
+        }
+        
+        .navbar-toggle:hover,
+        .navbar-toggle:focus {
+          background-color: rgba(255,255,255,0.1) !important;
+        }
+        
+        .navbar-toggle .icon-bar {
+          background-color: white !important;
+        }
+        
+        /* Adjust title position to accommodate hamburger menu */
+        .main-header .navbar-brand {
+          margin-left: 50px !important;
         }
         
         /* Controls panel styling */
@@ -83,14 +102,16 @@ dashboardPage(
         
         .controls-row {
           display: flex;
-          gap: 20px;
+          justify-content: space-around;
           flex-wrap: wrap;
           align-items: end;
+          gap: 20px;
         }
         
         .control-group {
           flex: 1;
           min-width: 200px;
+          max-width: 300px;
         }
         
         .control-group label {
@@ -105,6 +126,34 @@ dashboardPage(
           border: 1px solid #ddd;
           border-radius: 4px;
           font-size: 14px;
+        }
+        
+        /* Custom slider styling for better year display */
+        .irs-grid-text {
+          font-size: 10px !important;
+          font-weight: bold !important;
+          color: #2c3e50 !important;
+          white-space: nowrap !important;
+        }
+        
+        .irs-grid-pol {
+          background-color: #3498db !important;
+        }
+        
+        .irs-bar {
+          background: linear-gradient(to right, #3498db, #2980b9) !important;
+        }
+        
+        .irs-from,
+        .irs-to,
+        .irs-single {
+          background-color: #3498db !important;
+          font-weight: bold !important;
+        }
+        
+        .irs-handle {
+          border: 2px solid #3498db !important;
+          background-color: white !important;
         }
         
         /* Value boxes styling */
@@ -228,6 +277,24 @@ dashboardPage(
               div(class = "controls-panel",
                   div(class = "controls-row",
                       div(class = "control-group",
+                          tags$label("Year Range:"),
+                          sliderInput("yearRange", NULL,
+                                      min = 1997, max = 2019, value = c(2000, 2019),
+                                      step = 1, sep = "",
+                                      ticks = TRUE),
+                          tags$script(HTML("
+                            $(document).ready(function() {
+                              setTimeout(function() {
+                                $('#yearRange').parent().find('.irs-grid-text').each(function(index) {
+                                  if (index % 2 === 1) {
+                                    $(this).hide();
+                                  }
+                                });
+                              }, 100);
+                            });
+                          "))
+                      ),
+                      div(class = "control-group",
                           tags$label("Platform:"),
                           selectInput("platform", NULL,
                                       choices = list(
@@ -237,12 +304,6 @@ dashboardPage(
                                         "Mac" = "mac"
                                       ),
                                       selected = "all")
-                      ),
-                      div(class = "control-group",
-                          tags$label("Year Range:"),
-                          sliderInput("yearRange", NULL,
-                                      min = 1997, max = 2019, value = c(2000, 2019),
-                                      step = 1, sep = "")
                       )
                   )
               ),
@@ -271,7 +332,7 @@ dashboardPage(
                 )
               )
       ),
-
+      
       tabItem(tabName = "genres",
               div(class = "controls-panel",
                   div(class = "controls-row",
@@ -325,7 +386,7 @@ dashboardPage(
                 )
               )
       ),
-
+      
       tabItem(
         tabName = "games",
         fluidRow(
@@ -336,13 +397,13 @@ dashboardPage(
                  )
           )
         ),
-
+        
         fluidRow(
           valueBoxOutput("gameReleaseDate", width = 4),
           valueBoxOutput("gamePositiveRating", width = 4),
           valueBoxOutput("gameMedianPlaytime", width = 4)
         ),
-
+        
         fluidRow(
           box(
             title = "🔍 Search & Filter Games", 
@@ -402,18 +463,18 @@ dashboardPage(
           column(
             width = 12,
             offset = 1,
-          style = "width:82%",
-          box( 
-            title = "🎮 Steam Games Database",
-            status = "info",
-            solidHeader = TRUE,
-            width = 12,
-            DT::dataTableOutput("gamesDT")
-          )
+            style = "width:82%",
+            box( 
+              title = "🎮 Steam Games Database",
+              status = "info",
+              solidHeader = TRUE,
+              width = 12,
+              DT::dataTableOutput("gamesDT")
+            )
           )
         )
       ),
-
+      
       tabItem(tabName = "about",
               fluidRow(
                 column(12,
