@@ -418,23 +418,23 @@ dashboardPage(
               fluidRow(
                 column(12,
                        div(class = "about-section",
-                           h2("Steam Games Analytics Dashboard", style = "text-align: center; color: #2c3e50; margin-bottom: 30px;"),
+                           h2("Steam Games Dashboard", style = "text-align: center; color: #2c3e50; margin-bottom: 30px;"),
                            
-                           h3("📊 Dashboard Overview"),
-                           p("This interactive dashboard provides comprehensive analysis of Steam's gaming ecosystem, featuring real data from over 27,000+ games. Explore gaming trends, genre analytics, and discover insights about the world's largest digital game distribution platform."),
+                           h3("About"),
+                           p("We made this dashboard to analyze Steam games data - it has info on over 27,000 games. It's basically our class project where we looked at different stats about games on Steam."),
                            
+                           h3("What's in here:"),
                            tags$ul(
-                             tags$li("📈 Interactive visualizations of Steam game release trends and patterns"),
-                             tags$li("🎮 Detailed genre and category analysis with filtering capabilities"),
-                             tags$li("🏢 Publisher and developer insights with comprehensive game statistics"),
-                             tags$li("🔍 Dynamic search and exploration tools for game discovery"),
-                             tags$li("⭐ User ratings and community review analysis"),
-                             tags$li("💰 Price distribution and platform compatibility insights")
+                             tags$li("Charts showing when games came out over time"),
+                             tags$li("Analysis of game genres and which ones are popular"),
+                             tags$li("Search function to find specific games"),
+                             tags$li("User ratings and review data"),
+                             tags$li("Game pricing information")
                            ),
                            
-                           h3("✍️️ Authors"),
+                           h3("Made by"),
                            p("Piotr Foltyniewicz 160295"),
-                           p("Jakub Adamski 160291")
+                           p("Jakub Adamski 160291"),
                        )
                 )
               )
