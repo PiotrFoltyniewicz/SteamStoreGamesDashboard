@@ -209,32 +209,27 @@ function(input, output, session) {
   })
   
   output$priceChart <- renderPlotly({
-    data <- tab2_filtered_data()
+    data <- tab2_filtered_data() %>%
+      filter(price <= 75)
     
-    price_summary <- data %>%
-      filter(!is.na(price), primary_genre != "Unknown") %>%
-      group_by(primary_genre) %>%
-      summarise(
-        `Avg Price ($)` = round(mean(price, na.rm = TRUE), 2),
-        `Median Price ($)` = round(median(price, na.rm = TRUE), 2),
-        `Max Price ($)` = max(price, na.rm = TRUE),
-        .groups = 'drop'
-      ) %>%
-      arrange(desc(`Median Price ($)`)) %>%
-      head(14)
-    
-    p <- ggplot(price_summary, aes(x = reorder(primary_genre, `Median Price ($)`), 
-                                   y = `Median Price ($)`)) +
-      geom_col(show.legend = FALSE, fill = "#FAD74A") +
-      geom_text(aes(label = `Median Price ($)`), position = position_nudge(y = 0.5), size = 3.5) +
-      labs(x = "Genre", y = "Price ($)") +
+    p <- ggplot(data, aes(x = reorder(primary_genre, price, FUN = median), 
+                          y = price)) +
+      geom_violin(fill = "#34a1eb", 
+                  alpha = 0.7, 
+                  scale = "width",
+                  trim = TRUE,
+                  show.legend = FALSE) +
+      scale_fill_viridis_d(option = "plasma") +
+      scale_y_continuous(
+        limits = c(0, min(75, max(data$price))),
+        breaks = seq(0, 75, by = 5)  # This must be outside of limits
+      ) +
+      labs(x = "Genre", 
+           y = "Price ($)") +
       theme_minimal() +
-      theme(
-        axis.text.x = element_text(angle = 45, hjust = 1)
-      )
-    ggplotly(p, tooltip = "none")
-      
+      coord_flip()
     
+    ggplotly(p, tooltip = "none")
   })
   
   output$playtimeChart <- renderPlotly({
@@ -445,6 +440,25 @@ function(input, output, session) {
   output$gamesDT <- DT::renderDataTable({
     data <- table_filtered_data()
     
+    # Apply price range filter
+    if(!is.null(input$priceRange)) {
+      data <- data %>%
+        filter(price >= input$priceRange[1] & price <= input$priceRange[2])
+    }
+    
+    # Apply search filter
+    if(!is.null(input$searchText) && input$searchText != "") {
+      search_term <- tolower(input$searchText)
+      data <- data %>%
+        filter(
+          grepl(search_term, tolower(name), fixed = TRUE) |
+            grepl(search_term, tolower(developer), fixed = TRUE) |
+            grepl(search_term, tolower(publisher), fixed = TRUE) |
+            grepl(search_term, tolower(primary_genre), fixed = TRUE) |
+            grepl(search_term, tolower(platform), fixed = TRUE)
+        )
+    }
+    
     display_data <- data %>%
       select(
         Name = name,
@@ -468,7 +482,7 @@ function(input, output, session) {
         lengthMenu = c(10, 15, 25, 50, 100),
         autoWidth = TRUE,
         scrollX = TRUE,
-        dom = 'lrtip',
+        dom = 'lrtip',  # Removed 'f' to hide default search box
         columnDefs = list(
           list(className = 'dt-center', targets = 3:6),
           list(width = '200px', targets = 0),
@@ -477,7 +491,7 @@ function(input, output, session) {
         )
       ),
       rownames = FALSE,
-      filter = "top",
+      filter = "none",  # Changed from "top" to "none" to remove column filters
       escape = FALSE,
       caption = htmltools::tags$caption(
         style = 'caption-side: top; text-align: center; color: #333; font-size: 16px; font-weight: bold;',

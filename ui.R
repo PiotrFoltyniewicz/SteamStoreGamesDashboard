@@ -414,7 +414,7 @@ dashboardPage(
             div(
               style = "margin-bottom: 15px;",
               fluidRow(
-                column(6,
+                column(4,
                        div(class = "control-group",
                            tags$label("Select Genres:"),
                            selectInput("explorerGenreFilter", NULL,
@@ -440,25 +440,30 @@ dashboardPage(
                                        selected = c("action", "adventure"))
                        )
                 ),
-                column(3,
-                       numericInput("minPrice",
-                                    "Min Price ($):",
-                                    value = 0,
-                                    min = 0,
-                                    step = 1)
+                column(4,
+                       div(class = "control-group",
+                           tags$label("Price Range ($):"),
+                           sliderInput("priceRange",
+                                       NULL,
+                                       min = 0,
+                                       max = 150,
+                                       value = c(0, 100),
+                                       step = 1,
+                                       pre = "$")
+                       )
                 ),
-                column(3,
-                       numericInput("maxPrice", 
-                                    "Max Price ($):",
-                                    value = 100,
-                                    min = 0,
-                                    step = 1)
+                column(4,
+                       div(class = "control-group",
+                           tags$label("Search Games:"),
+                           textInput("searchText", 
+                                     NULL,
+                                     placeholder = "Search by name, developer, publisher...")
+                       )
                 )
               )
             )
           )
         ),
-        
         fluidRow(
           column(
             width = 12,
@@ -472,9 +477,9 @@ dashboardPage(
               DT::dataTableOutput("gamesDT")
             )
           )
-        )
+          
+        ),
       ),
-      
       tabItem(tabName = "about",
               fluidRow(
                 column(12,
@@ -495,7 +500,7 @@ dashboardPage(
                            
                            h3("Made by"),
                            p("Piotr Foltyniewicz 160295"),
-                           p("Jakub Adamski 160291"),
+                           p("Jakub Adamski 160291")
                        )
                 )
               )
